@@ -1,5 +1,4 @@
 <?php
-require_once dirname(__FILE__).'/functions.jsconnect.php';
 
 // 1. Get your client ID and secret here. These must match those in your jsConnect settings.
 $clientID = "1234";
@@ -26,4 +25,4 @@ if ($signedIn) {
 // This should be true unless you are testing. 
 // You can also use a hash name like md5, sha1 etc which must be the name as the connection settings in Vanilla.
 $secure = true; 
-WriteJsConnect($user, $_GET, $clientID, $secret, $secure);
+JSConnect::Write($user, $_GET, $clientID, $secret, $secure);
