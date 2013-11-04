@@ -12,12 +12,25 @@
 class Kohana_JSConnect
 {
 	const JS_TIMEOUT = 1440; //24 * 60;
+
+	public function __construct($config = array())
+	{
+		$this->config = $config;
+	}
+
+	public static function factory(array $config = array())
+	{
+		if ( ! $config)
+		{
+			$config = Kohana::$config->load('jsconnect')->as_array();
+		}
+		return new JSConnect($config);
+	}
+
 	/**
 	 * Write the jsConnect string for single sign on.
 	 * @param array $User An array containing information about the currently signed on user. If no user is signed in then this should be an empty array.
 	 * @param array $Request An array of the $_GET request.
-	 * @param string $ClientID The string client ID that you set up in the jsConnect settings page.
-	 * @param string $Secret The string secred that you set up in the jsConnect settings page.
 	 * @param string|bool $Secure Whether or not to check for security. This is one of these values.
 	 *  - true: Check for security and sign the response with an md5 hash.
 	 *  - false: Don't check for security, but sign the response with an md5 hash.
@@ -25,7 +38,7 @@ class Kohana_JSConnect
 	 *  - null: Don't check for security and don't sign the response.
 	 * @since 1.1b Added the ability to provide a hash algorithm to $Secure.
 	 */
-	public static function Write($User, $Request, $ClientID, $Secret, $Secure = TRUE)
+	public function Write($User, $Request, $Secure = TRUE)
 	{
 		$User = array_change_key_case($User);
 
@@ -37,7 +50,7 @@ class Kohana_JSConnect
 			{
 				$Error = array('error' => 'invalid_request', 'message' => 'The client_id parameter is missing.');
 			}
-			elseif ($Request['client_id'] != $ClientID)
+			elseif ($Request['client_id'] != $this->config['client_id'])
 			{
 				$Error = array('error' => 'invalid_client', 'message' => "Unknown client {$Request['client_id']}.");
 			}
@@ -68,7 +81,7 @@ class Kohana_JSConnect
 			else
 			{
 				// Make sure the timestamp hasn't timed out.
-				$Signature = self::Hash($Request['timestamp'].$Secret, $Secure);
+				$Signature = $this->Hash($Request['timestamp'].$this->config['secret'], $Secure);
 				if ($Signature != $Request['signature'])
 				{
 					$Error = array('error' => 'access_denied', 'message' => 'Signature invalid.');
@@ -88,7 +101,7 @@ class Kohana_JSConnect
 			}
 			else
 			{
-				$Result = self::Sign($User, $ClientID, $Secret, $Secure, TRUE);
+				$Result = $this->Sign($User, $Secure, TRUE);
 			}
 		}
 		else
@@ -108,7 +121,7 @@ class Kohana_JSConnect
 		}
 	}
 
-	public static function Sign($Data, $ClientID, $Secret, $HashType, $ReturnData = FALSE)
+	public function Sign($Data, $HashType, $ReturnData = FALSE)
 	{
 		$Data = array_change_key_case($Data);
 		ksort($Data);
@@ -123,10 +136,10 @@ class Kohana_JSConnect
 
 		$String = http_build_query($Data, NULL, '&');
 		//   echo "$String\n";
-		$Signature = self::Hash($String.$Secret, $HashType);
+		$Signature = self::Hash($String.$this->config['secret'], $HashType);
 		if ($ReturnData)
 		{
-			$Data['client_id'] = $ClientID;
+			$Data['client_id'] = $this->config['client_id'];
 			$Data['signature'] = $Signature;
 			//      $Data['string'] = $String;
 			return $Data;
@@ -177,16 +190,16 @@ class Kohana_JSConnect
 	 * @param string $Secret Your secret.
 	 * @return string
 	 */
-	public static function SSOString($User, $ClientID, $Secret)
+	public function SSOString($User)
 	{
 		if ( ! isset($User['client_id']))
 		{
-			$User['client_id'] = $ClientID;
+			$User['client_id'] = $this->config['client_id'];
 		}
 
 		$String = base64_encode(json_encode($User));
 		$Timestamp = time();
-		$Hash = hash_hmac('sha1', "$String $Timestamp", $Secret);
+		$Hash = hash_hmac('sha1', "$String $Timestamp", $this->config['secret']);
 
 		$Result = "$String $Hash $Timestamp hmacsha1";
 		return $Result;
